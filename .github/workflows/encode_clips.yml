@@ -1,0 +1,51 @@
+name: Encode Kurukshetra Clips
+
+on:
+  workflow_dispatch:
+
+jobs:
+  encode:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout clips repo
+      uses: actions/checkout@v3
+
+    - name: Install ffmpeg
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+    - name: Encode ALL existing clips in /github folder
+      run: |
+        mkdir -p encoded/
+
+        for FILE in github/*.mp4; do
+          BASENAME=$(basename "$FILE")
+          OUT="encoded/$BASENAME"
+
+          echo "🎬 Encoding $FILE → $OUT"
+
+          ffmpeg -i "$FILE" \
+            -vcodec libx264 \
+            -preset fast \
+            -acodec aac \
+            -movflags +faststart \
+            -pix_fmt yuv420p \
+            -vf "scale='min(1080,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease" \
+            "$OUT" -y
+
+          echo "✅ Finished encoding: $FILE"
+        done
+
+    - name: Commit encoded clips
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
+        git add encoded/*.mp4 || true
+
+        if git diff --cached --quiet; then
+          echo "No encoded files to commit."
+        else
+          git commit -m "Encoded Kurukshetra clips"
+          git push
+        fi
